@@ -31,7 +31,9 @@ def scrape_title():
     return driver
 
 # Configuration
-DOWNLOAD_DIR = r"C:\Users\AmanFarkade\OneDrive - Pepper India Resolution Private Limited\SeleniumProj\UK_AUTO\pdf_dwn"
+# DOWNLOAD_DIR = r"C:\Users\AmanFarkade\OneDrive - Pepper India Resolution Private Limited\SeleniumProj\UK_AUTO\pdf_dwn"
+# os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+DOWNLOAD_DIR = os.path.join(os.getcwd(), "pdf_dwn")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 def print_timed(message):
