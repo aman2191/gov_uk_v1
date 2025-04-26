@@ -7,6 +7,7 @@ from datetime import datetime
 import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from streamlit.components.v1 import html  
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
@@ -104,14 +105,30 @@ def check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, br
         conditions_met = False
     return conditions_met
 
+# def show_pdf_in_streamlit(pdf_content_io):
+#     pdf_content_io.seek(0)
+#     base64_pdf = base64.b64encode(pdf_content_io.read()).decode("utf-8")
+#     pdf_display = f"""
+#     <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>
+#     """
+#     st.markdown(pdf_display, unsafe_allow_html=True)
+
 def show_pdf_in_streamlit(pdf_content_io):
+    """Display PDF directly in Streamlit using Chrome-friendly embed"""
     pdf_content_io.seek(0)
     base64_pdf = base64.b64encode(pdf_content_io.read()).decode("utf-8")
-    pdf_display = f"""
-    <iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="700px" type="application/pdf"></iframe>
+    
+    # Modified HTML using embed instead of iframe
+    pdf_html = f"""
+    <embed src="data:application/pdf;base64,{base64_pdf}" 
+           width="100%" 
+           height="700px" 
+           type="application/pdf">
     """
-    st.markdown(pdf_display, unsafe_allow_html=True)
-
+    
+    # Render using Streamlit's HTML component
+    html(pdf_html, height=700)
+    
 def get_company_info(company_name, persons_entitled, brief_description, input_date):
     date_info = parse_date(input_date)
     driver = scrape_title()
