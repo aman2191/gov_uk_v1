@@ -113,62 +113,52 @@ def check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, br
 #     """
 #     st.markdown(pdf_display, unsafe_allow_html=True)
 
-def show_pdf_in_streamlit(pdf_content_io):
-    """Multi-method PDF display with robust error handling"""
-    pdf_content_io.seek(0)
-    
+def show_companies_house_pdf(url):
+    """Safe PDF display for UK Companies House documents"""
     try:
-        # ================== Method 1: Native PDF Viewer ==================
-        base64_pdf = base64.b64encode(pdf_content_io.read()).decode('utf-8')
+        # Download PDF content
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
         
-        # PDF.js Viewer implementation
-        pdf_js_html = f"""
-        <div id="pdf-viewer" style="height: 700px;">
-            <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
-                    width="100%"
-                    height="700px"
-                    style="border: none;">
+        # Verify content type
+        if 'application/pdf' not in response.headers.get('Content-Type', ''):
+            st.error("Not a valid PDF document")
+            return
+
+        # Create in-memory buffer
+        pdf_buffer = BytesIO(response.content)
+        
+        # Method 1: PDF.js Viewer (hosted version)
+        base64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode('utf-8')
+        viewer_html = f"""
+        <div style="height: 700px;">
+            <iframe 
+                src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
+                width="100%"
+                height="700px"
+                style="border: none;">
             </iframe>
         </div>
         """
-        html(pdf_js_html, height=700)
-        
-        # ================== Method 2: Direct Download ==================
+        html(viewer_html, height=700)
+
+        # Method 2: Direct download
         st.markdown("---")
         st.download_button(
-            label="⬇️ Download PDF (Direct Access)",
-            data=pdf_content_io.getvalue(),
-            file_name="document.pdf",
+            label="⬇️ Download Original PDF",
+            data=pdf_buffer.getvalue(),
+            file_name="companies_house_document.pdf",
             mime="application/pdf"
         )
-        
-        # ================== Method 3: Google Docs Viewer ==================
+
+        # Method 3: External link
         st.markdown("---")
-        st.markdown(
-            f"📄 [View in Google Docs Viewer](https://docs.google.com/viewer?url=data:application/pdf;base64,{base64_pdf})",
-            unsafe_allow_html=True
-        )
-        
-        # ================== Method 4: PDF Metadata Verification ==================
-        st.markdown("---")
-        with st.expander("📊 PDF Content Verification"):
-            try:
-                pdf_text, _ = parse_pdf_content(BytesIO(pdf_content_io.getvalue()))
-                st.text_area("Extracted PDF Text", pdf_text, height=200)
-                st.write(f"PDF Size: {len(pdf_content_io.getvalue()) / 1024:.1f} KB")
-            except Exception as e:
-                st.error(f"Content verification failed: {str(e)}")
-                
+        st.markdown(f"🔗 [Open in Companies House Website]({url})")
+
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to retrieve document: {str(e)}")
     except Exception as e:
-        st.error(f"PDF Rendering Error: {str(e)}")
-        st.error("""
-            Failed to display PDF. This could be due to:
-            1. Browser security restrictions
-            2. Corrupted PDF file
-            3. Network issues
-            
-            Please use the download button below to access the document.
-        """)
+        st.error(f"Error displaying PDF: {str(e)}")
     
 def get_company_info(company_name, persons_entitled, brief_description, input_date):
     date_info = parse_date(input_date)
@@ -210,7 +200,7 @@ def get_company_info(company_name, persons_entitled, brief_description, input_da
                         # Verify PDF validity
                         try:
                             PyPDF2.PdfReader(pdf_content)
-                            show_pdf_in_streamlit(pdf_content)
+                            show_companies_house_pdf(pdf_url)
                         except PyPDF2.errors.PdfReadError:
                             st.error("⚠️ Invalid PDF File - Content cannot be displayed")
                             st.download_button(
