@@ -114,35 +114,61 @@ def check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, br
 #     st.markdown(pdf_display, unsafe_allow_html=True)
 
 def show_pdf_in_streamlit(pdf_content_io):
-    """Enhanced PDF display with multiple fallback methods"""
+    """Multi-method PDF display with robust error handling"""
     pdf_content_io.seek(0)
     
     try:
-        # Method 1: Direct embed with base64
+        # ================== Method 1: Native PDF Viewer ==================
         base64_pdf = base64.b64encode(pdf_content_io.read()).decode('utf-8')
-        pdf_html = f"""
-        <embed src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0"
-               width="100%" 
-               height="700px" 
-               type="application/pdf">
-        """
-        html(pdf_html, height=700)
         
-        # Add download fallback
+        # PDF.js Viewer implementation
+        pdf_js_html = f"""
+        <div id="pdf-viewer" style="height: 700px;">
+            <iframe src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
+                    width="100%"
+                    height="700px"
+                    style="border: none;">
+            </iframe>
+        </div>
+        """
+        html(pdf_js_html, height=700)
+        
+        # ================== Method 2: Direct Download ==================
+        st.markdown("---")
         st.download_button(
-            label="Download PDF (Fallback)",
+            label="⬇️ Download PDF (Direct Access)",
             data=pdf_content_io.getvalue(),
             file_name="document.pdf",
             mime="application/pdf"
         )
         
+        # ================== Method 3: Google Docs Viewer ==================
+        st.markdown("---")
+        st.markdown(
+            f"📄 [View in Google Docs Viewer](https://docs.google.com/viewer?url=data:application/pdf;base64,{base64_pdf})",
+            unsafe_allow_html=True
+        )
+        
+        # ================== Method 4: PDF Metadata Verification ==================
+        st.markdown("---")
+        with st.expander("📊 PDF Content Verification"):
+            try:
+                pdf_text, _ = parse_pdf_content(BytesIO(pdf_content_io.getvalue()))
+                st.text_area("Extracted PDF Text", pdf_text, height=200)
+                st.write(f"PDF Size: {len(pdf_content_io.getvalue()) / 1024:.1f} KB")
+            except Exception as e:
+                st.error(f"Content verification failed: {str(e)}")
+                
     except Exception as e:
-        st.error(f"Error displaying PDF: {str(e)}")
-        # Alternative method using Google Docs Viewer
-        st.markdown(f"[View PDF in new tab](https://docs.google.com/viewer?url=data:application/pdf;base64,{base64_pdf})")
-    
-    # Render using Streamlit's HTML component
-    html(pdf_html, height=700)
+        st.error(f"PDF Rendering Error: {str(e)}")
+        st.error("""
+            Failed to display PDF. This could be due to:
+            1. Browser security restrictions
+            2. Corrupted PDF file
+            3. Network issues
+            
+            Please use the download button below to access the document.
+        """)
     
 def get_company_info(company_name, persons_entitled, brief_description, input_date):
     date_info = parse_date(input_date)
@@ -177,12 +203,22 @@ def get_company_info(company_name, persons_entitled, brief_description, input_da
                     pdf_content = get_pdf_content(pdf_url)
                     pdf_text, charge_code = parse_pdf_content(pdf_content)
                     if check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, brief_description):
-                        st.success("✅ PDF matched all conditions!")
-                        show_pdf_in_streamlit(pdf_content)
+                        st.success("✅ PDF Matched All Requirements!")
+                        # Get PDF content
+                        # pdf_content = get_pdf_content(pdf_url)  # Your existing function
                         
-                        # Alternative PDF display option
-                        if st.checkbox("Show raw PDF content"):
-                            st.write(pdf_text)  # Display extracted text as fallback
+                        # Verify PDF validity
+                        try:
+                            PyPDF2.PdfReader(pdf_content)
+                            show_pdf_in_streamlit(pdf_content)
+                        except PyPDF2.errors.PdfReadError:
+                            st.error("⚠️ Invalid PDF File - Content cannot be displayed")
+                            st.download_button(
+                                label="⚠️ Download Raw File",
+                                data=pdf_content.getvalue(),
+                                file_name="document.pdf",
+                                mime="application/pdf"
+                            )
             except Exception as e:
                 print_timed(f"⚠️ Error in filing {idx}: {str(e)}")
         st.success("❌ No valid filings matched all conditions!")
