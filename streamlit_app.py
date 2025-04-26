@@ -114,17 +114,32 @@ def check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, br
 #     st.markdown(pdf_display, unsafe_allow_html=True)
 
 def show_pdf_in_streamlit(pdf_content_io):
-    """Display PDF directly in Streamlit using Chrome-friendly embed"""
+    """Enhanced PDF display with multiple fallback methods"""
     pdf_content_io.seek(0)
-    base64_pdf = base64.b64encode(pdf_content_io.read()).decode("utf-8")
     
-    # Modified HTML using embed instead of iframe
-    pdf_html = f"""
-    <embed src="data:application/pdf;base64,{base64_pdf}" 
-           width="100%" 
-           height="700px" 
-           type="application/pdf">
-    """
+    try:
+        # Method 1: Direct embed with base64
+        base64_pdf = base64.b64encode(pdf_content_io.read()).decode('utf-8')
+        pdf_html = f"""
+        <embed src="data:application/pdf;base64,{base64_pdf}#toolbar=0&navpanes=0"
+               width="100%" 
+               height="700px" 
+               type="application/pdf">
+        """
+        html(pdf_html, height=700)
+        
+        # Add download fallback
+        st.download_button(
+            label="Download PDF (Fallback)",
+            data=pdf_content_io.getvalue(),
+            file_name="document.pdf",
+            mime="application/pdf"
+        )
+        
+    except Exception as e:
+        st.error(f"Error displaying PDF: {str(e)}")
+        # Alternative method using Google Docs Viewer
+        st.markdown(f"[View PDF in new tab](https://docs.google.com/viewer?url=data:application/pdf;base64,{base64_pdf})")
     
     # Render using Streamlit's HTML component
     html(pdf_html, height=700)
@@ -164,7 +179,10 @@ def get_company_info(company_name, persons_entitled, brief_description, input_da
                     if check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, brief_description):
                         st.success("✅ PDF matched all conditions!")
                         show_pdf_in_streamlit(pdf_content)
-                        return
+                        
+                        # Alternative PDF display option
+                        if st.checkbox("Show raw PDF content"):
+                            st.write(pdf_text)  # Display extracted text as fallback
             except Exception as e:
                 print_timed(f"⚠️ Error in filing {idx}: {str(e)}")
         st.success("❌ No valid filings matched all conditions!")
