@@ -6,6 +6,7 @@ import traceback
 from datetime import datetime
 import requests
 from selenium import webdriver
+from streamlit_pdf_viewer import pdf_viewer
 from selenium.webdriver.common.by import By
 from streamlit.components.v1 import html  
 from selenium.webdriver.common.keys import Keys
@@ -113,52 +114,15 @@ def check_pdf_conditions(pdf_text, date_info, company_name, persons_entitled, br
 #     """
 #     st.markdown(pdf_display, unsafe_allow_html=True)
 
-def show_companies_house_pdf(url):
-    """Safe PDF display for UK Companies House documents"""
-    try:
-        # Download PDF content
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        
-        # Verify content type
-        if 'application/pdf' not in response.headers.get('Content-Type', ''):
-            st.error("Not a valid PDF document")
-            return
+def show_companies_house_pdf(pdf_url):
+    # Fetch the PDF from URL
+    response = requests.get(pdf_url)
 
-        # Create in-memory buffer
-        pdf_buffer = BytesIO(response.content)
-        
-        # Method 1: PDF.js Viewer (hosted version)
-        base64_pdf = base64.b64encode(pdf_buffer.getvalue()).decode('utf-8')
-        viewer_html = f"""
-        <div style="height: 700px;">
-            <iframe 
-                src="https://mozilla.github.io/pdf.js/web/viewer.html?file=data:application/pdf;base64,{base64_pdf}"
-                width="100%"
-                height="700px"
-                style="border: none;">
-            </iframe>
-        </div>
-        """
-        html(viewer_html, height=700)
-
-        # Method 2: Direct download
-        st.markdown("---")
-        st.download_button(
-            label="⬇️ Download Original PDF",
-            data=pdf_buffer.getvalue(),
-            file_name="companies_house_document.pdf",
-            mime="application/pdf"
-        )
-
-        # Method 3: External link
-        st.markdown("---")
-        st.markdown(f"🔗 [Open in Companies House Website]({url})")
-
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to retrieve document: {str(e)}")
-    except Exception as e:
-        st.error(f"Error displaying PDF: {str(e)}")
+    if response.status_code == 200:
+        binary_data = response.content
+        pdf_viewer(input=binary_data, width=700)
+    else:
+        st.error("Failed to fetch PDF from URL.")
     
 def get_company_info(company_name, persons_entitled, brief_description, input_date):
     date_info = parse_date(input_date)
