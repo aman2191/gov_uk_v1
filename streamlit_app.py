@@ -120,6 +120,12 @@ def show_companies_house_pdf(pdf_url):
 
     if response.status_code == 200:
         binary_data = response.content
+        st.download_button(
+            label="Download PDF",
+            data=binary_data,
+            file_name="downloaded_file.pdf",
+            mime="application/pdf"
+        )
         pdf_viewer(input=binary_data, width=700)
     else:
         st.error("Failed to fetch PDF from URL.")
